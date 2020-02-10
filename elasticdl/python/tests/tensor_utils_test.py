@@ -8,7 +8,7 @@ from elasticdl.python.common.tensor_utils import (
     indexed_slices_to_pb,
     ndarray_to_pb,
     pb_to_indexed_slices,
-    pb_to_ndarry,
+    pb_to_ndarray,
 )
 
 
@@ -16,7 +16,7 @@ class TensorUtilsTest(unittest.TestCase):
     def test_round_trip(self):
         def verify(array):
             pb = ndarray_to_pb(array)
-            new_array = pb_to_ndarry(pb)
+            new_array = pb_to_ndarray(pb)
             np.testing.assert_array_equal(array, new_array)
 
         # dtype = np.float32

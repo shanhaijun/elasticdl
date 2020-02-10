@@ -34,7 +34,7 @@ from elasticdl.python.common.tensor_utils import (
     deduplicate_indexed_slices,
     indexed_slices_to_pb,
     ndarray_to_pb,
-    pb_to_ndarry,
+    pb_to_ndarray,
 )
 from elasticdl.python.common.timing_utils import Timing
 from elasticdl.python.elasticdl.feature_column import feature_column
@@ -206,7 +206,7 @@ class Worker(object):
         self._embedding_layers = find_layer(self._model, Embedding)
         if self._use_multi_ps:
             for layer in self._embedding_layers:
-                layer.set_lookup_embedding_func(self.pull_embedding_vector)
+                layer.set_lookup_embedding_func(self.pull_embedding_table)
 
     def _init_embedding_column(self):
         self._embedding_columns = []
@@ -223,7 +223,7 @@ class Worker(object):
 
         if self._use_multi_ps:
             for column in self._embedding_columns:
-                column.set_lookup_embedding_func(self.pull_embedding_vector)
+                column.set_lookup_embedding_func(self.pull_embedding_table)
 
     def _check_name_conflict_of_embedding_layer_and_column(self):
         if not self._embedding_layers or not self._embedding_columns:
@@ -302,13 +302,13 @@ class Worker(object):
                 continue
             # async grpc call
             req = elasticdl_pb2.PullDenseParametersRequest()
-            req.current_model_version = self._model_versions_from_ps[ps_id]
+            req.version = self._model_versions_from_ps[ps_id]
             var_future = stub.pull_dense_parameters.future(req)
             variable_future_and_id_pairs.append((var_future, ps_id))
 
         for var_future, ps_id in variable_future_and_id_pairs:
             res = var_future.result()
-            if not res.model_init_status:
+            if not res.initialized:
                 # push variable to ps for initialization
                 self.push_dense_parameters_to_ps(ps_id)
                 req = elasticdl_pb2.PullDenseParametersRequest()
@@ -321,7 +321,7 @@ class Worker(object):
                     )
 
             for name, pb in res.model.dense_parameters.items():
-                array = pb_to_ndarry(pb)
+                array = pb_to_ndarray(pb)
                 self._non_embed_vars[name].assign(array)
             self._model_versions_from_ps[ps_id] = res.model.version
 
@@ -359,7 +359,12 @@ class Worker(object):
         for ps_id in ps_grads:
             req = reqs[ps_id]
             for g, name in ps_grads[ps_id]:
-                req.dense_parametsrs[name] = ndarray_to_pb(g)
+                # Keras embedding layer has a dense parameter,
+                # but an indexed slices type gradient
+                if g.indices is not None:
+                    req.indexed_slices[name] = indexed_slices_to_pb(g)
+                else:
+                    req.dense_parameters[name] = ndarray_to_pb(g)
 
         edl_embedding_name_values = self._collect_edl_embedding_name_values()
 
@@ -469,7 +474,7 @@ class Worker(object):
             pb_future_and_id_pairs.append((pb_future, ps_id))
         for pb_future, ps_id in pb_future_and_id_pairs:
             pb = pb_future.result()
-            embeddings.append(pb_to_ndarry(pb.concated_vectors))
+            embeddings.append(pb_to_ndarray(pb))
             index.extend(ps_ids_index[ps_id])
         embeddings = np.concatenate(embeddings)
 

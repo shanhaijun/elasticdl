@@ -108,12 +108,13 @@ message PullDenseParametersRequest {
 
 message PullDenseParametersResponse {
   bool initialized = 1;
-  map<string, Tensor> dense_parameters = 2;
+  int32 version = 2;
+  map<string, Tensor> dense_parameters = 3;
 }
 
 message PullEmbeddingTableRequest {
   string name = 1;
-  repeated int64 indices = 2;
+  repeated int64 ids = 2;
 }
 
 message PushGradientResponse {
@@ -125,7 +126,7 @@ message PushGradientResponse {
 service Pserver {
   rpc pull_dense_parameters(PullDenseParametersRequest)
       returns (PullDenseParametersResponse);
-  rpc pull_embedding_table(PullEmbeddingTableRequest) returns (IndexedSlices);
+  rpc pull_embedding_table(PullEmbeddingTableRequest) returns (Tensor);
   rpc push_dense_parameters(Model) returns (google.protobuf.Empty);
   rpc push_embedding_table_infos(Model) returns (google.protobuf.Empty);
   rpc push_gradients(Model) returns (PushGradientResponse);

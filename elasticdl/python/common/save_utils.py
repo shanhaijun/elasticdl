@@ -6,7 +6,10 @@ import tensorflow as tf
 
 from elasticdl.proto import elasticdl_pb2
 from elasticdl.python.common.hash_utils import int_to_id, string_to_id
-from elasticdl.python.common.tensor import Tensor
+from elasticdl.python.common.tensor_utils import (
+    pb_to_indexed_slices,
+    pb_to_ndarray,
+)
 from elasticdl.python.ps.embedding_table import create_embedding_table
 from elasticdl.python.ps.parameters import Parameters
 
@@ -44,19 +47,18 @@ def _get_params_shard_from_pb(model_pb, shard_index, shard_num):
     non_embedding_vars = {}
     embedding_table_values = {}
 
-    for tensor_pb in model_pb.param:
-        tensor = Tensor.from_tensor_pb(tensor_pb)
-        if tensor.indices is not None:
-            embedding_table_values.setdefault(tensor.name, ([], []))
-            for embedding_id, vector in zip(tensor.indices, tensor.values):
-                if int_to_id(embedding_id, shard_num) == shard_index:
-                    embedding_table_values[tensor.name][0].append(embedding_id)
-                    embedding_table_values[tensor.name][1].append(vector)
-        else:
-            if string_to_id(tensor.name, shard_num) == shard_index:
-                non_embedding_vars[tensor.name] = tf.Variable(
-                    initial_value=tensor.values, trainable=True
-                )
+    for name, pb in model_pb.dense_parameters.items():
+        if string_to_id(name, shard_num) == shard_index:
+            non_embedding_vars[name] = tf.Variable(
+                initial_value=pb_to_ndarray(pb), trainable=True
+            )
+    for name, pb in model_pb.indexed_slices.items():
+        embedding_table_values.setdefault(name, ([], []))
+        t = pb_to_indexed_slices(pb)
+        for embedding_id, vector in zip(t.indices, t.values):
+            if int_to_id(embedding_id, shard_num) == shard_index:
+                embedding_table_values[name][0].append(embedding_id)
+                embedding_table_values[name][1].append(vector)
     return non_embedding_vars, embedding_table_values
 
 
@@ -239,7 +241,7 @@ class CheckpointSaver(object):
                     "The versions in model shards are not consistency"
                 )
 
-            for embedding_info_pb in model_pb.embedding_table_info:
+            for embedding_info_pb in model_pb.embedding_table_infos:
                 embedding_table = create_embedding_table(embedding_info_pb)
                 embedding_tables.setdefault(
                     embedding_table.name, embedding_table

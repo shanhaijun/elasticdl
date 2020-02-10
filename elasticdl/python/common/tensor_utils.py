@@ -28,7 +28,7 @@ def ndarray_to_pb(array):
     return pb
 
 
-def pb_to_ndarry(pb):
+def pb_to_ndarray(pb):
     if not pb.dims:
         raise ValueError("PB has no dim defined")
     dtype = dtype_tensor_to_numpy(pb.dtype)
@@ -47,7 +47,7 @@ def pb_to_ndarry(pb):
 
 
 def pb_to_indexed_slices(pb):
-    concated_vectors = pb_to_ndarry(pb.concated_vectors)
+    concated_vectors = pb_to_ndarray(pb.concated_vectors)
     values = [int(i) for i in pb.ids]
     return tf.IndexedSlices(concated_vectors, values)
 
@@ -55,7 +55,10 @@ def pb_to_indexed_slices(pb):
 def indexed_slices_to_pb(slices):
     pb = elasticdl_pb2.IndexedSlices()
     serialize_ndarray(slices.values, pb.concated_vectors)
-    if len(slices.indices.shape) > 1:
+    if (
+        isinstance(slices.indices, np.ndarray)
+        and len(slices.indices.shape) > 1
+    ):
         raise ValueError(
             "IndexedSlices pb only accepts indices with one dimension, got %d",
             len(slices.indices.shape),

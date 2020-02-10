@@ -1,33 +1,33 @@
 package common
 
 import (
-	"elasticdl.org/elasticdl/pkg/proto"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
-func TestTensorInit(t *testing.T) {
-	i1 := []int64{1, 3, 5, 8, 9}
-	d1 := []int64{2, 3}
-	v1 := []float32{1.0, 2.0, 3.0, 4.0, 5.0, 6.0}
-	t1 := Tensor{"t1", v1, d1, i1}
+func TestTensor(t *testing.T) {
+	et := NewEmptyTensor([]int64{3, 3}, Float64)
+	assert.Equal(t, et.Dims, []int64{3, 3}, "NewEmptyTensor FAIL")
 
-	assert.Equal(t, t1.Name, "t1")
-	assert.Equal(t, t1.Value, v1)
-	assert.Equal(t, t1.Dim, d1)
-	assert.Equal(t, t1.Indices, i1)
-}
+	ev := NewEmptyVector(5, Float64)
+	assert.Equal(t, ev.Dims, []int64{5}, "NewEmptyVector FAIL")
 
-func TestTensorSerialization(t *testing.T) {
-	i1 := []int64{1, 3, 5, 8, 9}
-	d1 := []int64{2, 3}
-	v1 := []float32{1.0, 2.0, 3.0, 4.0, 5.0, 6.0}
-	t1 := Tensor{"t1", v1, d1, i1}
+	dim := []int64{2, 3}
+	slice := []float32{1.0, 2.0, 3.0, 4.0, 5.0, 6.0}
+	t1 := NewTensor(slice, dim)
 
-	var p *proto.Tensor = SerializeTensor(&t1)
-	assert.NotNil(t, p)
+	assert.Equal(t, Slice(t1).([]float32), slice, "NewTensor FAIL")
+	assert.Equal(t, t1.Dims, dim, "NewTensor FAIL")
 
-	var t2 *Tensor = DeserializeTensorPB(p)
+	v1 := NewVector(slice)
+	assert.Equal(t, Slice(v1).([]float32), slice, "NewVector FAIL")
+	assert.Equal(t, []int64{6}, v1.Dims, "NewVector FAIL")
 
-	assert.Equal(t, t1, *t2)
+	r1 := RowOfTensor(t1, 1)
+	assert.Equal(t, Slice(r1).([]float32), slice[3:6], "RowOfTensor FAIL")
+	assert.Equal(t, []int64{3}, r1.Dims, "RowOfTensor FAIL")
+
+	val := NewVector([]float32{30, 40, 50})
+	SetTensorRow(t1, 1, val)
+	assert.Equal(t, Slice(t1).([]float32), []float32{1.0, 2.0, 3.0, 30, 40, 50}, "SetTensorRow FAIL")
 }

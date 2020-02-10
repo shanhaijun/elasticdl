@@ -1,41 +1,77 @@
 package common
 
 import (
-	"bytes"
 	"elasticdl.org/elasticdl/pkg/proto"
-	"encoding/binary"
-	"math"
+	"reflect"
+	"unsafe"
 )
 
-// Tensor defines tensor struct
-// TODO(qijun): handle different tensor dtype
-type Tensor struct {
-	Name    string
-	Value   []float32
-	Dim     []int64
-	Indices []int64
-}
-
-// NewTensor create a new n-dim tensor
-func NewTensor(dim []int64, name string) *Tensor {
-	var t Tensor
-	t.Name = name
-	t.Value = make([]float32, GetDimProduct(dim))
-	t.Dim = dim
+// NewEmptyTensor create an empty n-dim tensor
+func NewEmptyTensor(dim []int64, dtype proto.ElementType) *proto.Tensor {
+	var t = proto.Tensor{
+		Content: make([]byte, DimProduct(dim)*int64(DtypeSize[dtype])),
+		Dims:    dim,
+		Dtype:   dtype,
+	}
 	return &t
 }
 
-// NewVector create a new 1-dim tensor
-func NewVector(dim int64, name string) *Tensor {
-	var t Tensor
-	t.Value = make([]float32, dim)
-	t.Dim = []int64{dim}
-	t.Name = name
+// NewTensor create a n-dim tensor using exsiting slice
+func NewTensor(slice interface{}, dim []int64) *proto.Tensor {
+	v := reflect.ValueOf(slice)
+	length := v.Len()
+	dtype := SliceTypeToDtype[reflect.TypeOf(slice)]
+	bytelen := length * int(DtypeSize[dtype])
+	if int64(length) != DimProduct(dim) {
+		return nil
+	}
+	sliceHeader := reflect.SliceHeader{
+		Data: uintptr(unsafe.Pointer(v.Pointer())),
+		Cap:  int(bytelen),
+		Len:  int(bytelen),
+	}
+	var t = proto.Tensor{
+		Content: *(*[]byte)(unsafe.Pointer(&sliceHeader)),
+		Dims:    dim,
+		Dtype:   dtype,
+	}
 	return &t
 }
 
-// GetDimProduct get the number of the elements of a tensor of this dim
-func GetDimProduct(dim []int64) int64 {
+// NewEmptyVector create an empty 1-dim tensor
+func NewEmptyVector(dim int64, dtype proto.ElementType) *proto.Tensor {
+	var t = proto.Tensor{
+		Content: make([]byte, dim*int64(DtypeSize[dtype])),
+		Dims:    []int64{dim},
+		Dtype:   dtype,
+	}
+	return &t
+}
+
+// NewVector create an empty 1-dim tensor
+func NewVector(slice interface{}) *proto.Tensor {
+	v := reflect.ValueOf(slice)
+	length := v.Len()
+	dtype := SliceTypeToDtype[reflect.TypeOf(slice)]
+	bytelen := length * int(DtypeSize[dtype])
+	if v.Len() != length {
+		return nil
+	}
+	sliceHeader := reflect.SliceHeader{
+		Data: uintptr(unsafe.Pointer(v.Pointer())),
+		Cap:  int(bytelen),
+		Len:  int(bytelen),
+	}
+	var t = proto.Tensor{
+		Content: *(*[]byte)(unsafe.Pointer(&sliceHeader)),
+		Dims:    []int64{int64(length)},
+		Dtype:   dtype,
+	}
+	return &t
+}
+
+// DimProduct get the number of the elements of a tensor of this dim
+func DimProduct(dim []int64) int64 {
 	var size int64 = 1
 	for _, d := range dim {
 		size *= d
@@ -43,70 +79,52 @@ func GetDimProduct(dim []int64) int64 {
 	return size
 }
 
-// Subtensor get the part reference of the tensor
-func (t *Tensor) subTensor(begin int64, len int64) *Tensor {
-	if begin+len > GetDimProduct(t.Dim) {
-		return nil
+// SubTensor get the part reference of the tensor
+func SubTensor(t *proto.Tensor, begin int64, length int64) *proto.Tensor {
+	dsize := int64(DtypeSize[t.Dtype])
+	begin *= dsize
+	var subt = proto.Tensor{
+		Content: t.Content[begin : begin+length*dsize],
+		Dims:    []int64{length},
+		Dtype:   t.Dtype,
 	}
-	var subt Tensor
-	subt.Value = t.Value[begin : begin+len]
-	subt.Dim = []int64{len}
 	return &subt
 }
 
-// AtRow get the row reference of a 2-dim tensor
-func (t *Tensor) AtRow(idx int64) *Tensor {
-	if len(t.Dim) != 2 || idx >= t.Dim[0] {
+// RowOfTensor get the row reference of a 2-dim tensor
+func RowOfTensor(t *proto.Tensor, idx int64) *proto.Tensor {
+	if len(t.Dims) != 2 || idx >= t.Dims[0] {
 		return nil
 	}
-	begin := t.Dim[1] * idx
-	return t.subTensor(begin, t.Dim[1])
+	begin := t.Dims[1] * idx
+	return SubTensor(t, begin, t.Dims[1])
 }
 
-// DeserializeTensorPB transforms pb to tensor
-func DeserializeTensorPB(pb *proto.Tensor) *Tensor {
-	var t Tensor
-	if pb.Dtype != proto.TensorDtype_DT_FLOAT32 {
-		return nil
-	}
-	if GetDimProduct(pb.Dim)*4 != int64(len(pb.Content)) {
-		return nil
-	}
-	t.Name = pb.Name
-	if pb.Dim != nil {
-		t.Dim = make([]int64, len(pb.Dim))
-		copy(t.Dim, pb.Dim)
-	}
-	if pb.Indices != nil {
-		t.Indices = make([]int64, len(pb.Indices))
-		copy(t.Indices, pb.Indices)
-	}
-	t.Value = make([]float32, len(pb.Content)/4)
-	br := bytes.NewReader(pb.GetContent())
-	binary.Read(br, binary.LittleEndian, &t.Value)
-	return &t
+// SetSubTensor set a vector to an index of tensor
+func SetSubTensor(t *proto.Tensor, begin int64, length int64, val *proto.Tensor) {
+	dsize := int64(DtypeSize[t.Dtype])
+	begin *= dsize
+	length *= dsize
+	copy(t.Content[begin:begin+length], val.Content)
 }
 
-// SerializeTensor transforms tensor to pb
-func SerializeTensor(t *Tensor) *proto.Tensor {
-	var pb proto.Tensor
-	pb.Name = t.Name
-	if t.Dim != nil {
-		pb.Dim = make([]int64, len(t.Dim))
-		copy(pb.Dim, t.Dim)
+// SetTensorRow set a vector to an index of tensor
+func SetTensorRow(t *proto.Tensor, idx int64, vec *proto.Tensor) {
+	if len(t.Dims) != 2 || idx >= t.Dims[0] {
+		return
 	}
-	if t.Indices != nil {
-		pb.Indices = make([]int64, len(t.Indices))
-		copy(pb.Indices, t.Indices)
+	begin := t.Dims[1] * idx
+	SetSubTensor(t, begin, t.Dims[1], vec)
+}
+
+// Slice gives a Slice interface to the Vector data
+func Slice(t *proto.Tensor) interface{} {
+	length := int(DimProduct(t.Dims))
+	sliceHeader := reflect.SliceHeader{
+		Data: uintptr(unsafe.Pointer(&t.Content[0])),
+		Cap:  length,
+		Len:  length,
 	}
-	if t.Value != nil {
-		pb.Content = make([]byte, GetDimProduct(t.Dim)*4)
-		for i, num := range t.Value {
-			bits := math.Float32bits(num)
-			binary.LittleEndian.PutUint32(pb.Content[(i*4):], bits)
-		}
-	}
-	// set dtype to float32
-	pb.Dtype = proto.TensorDtype_DT_FLOAT32
-	return &pb
+	val := reflect.NewAt(DtypeToSliceType[t.Dtype], unsafe.Pointer(&sliceHeader)).Elem()
+	return val.Interface()
 }

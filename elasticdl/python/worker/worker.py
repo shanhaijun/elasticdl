@@ -34,7 +34,7 @@ from elasticdl.python.common.tensor_utils import (
     deduplicate_indexed_slices,
     indexed_slices_to_pb,
     ndarray_to_pb,
-    pb_to_ndarry,
+    pb_to_ndarray,
 )
 from elasticdl.python.common.timing_utils import Timing
 from elasticdl.python.elasticdl.feature_column import feature_column
@@ -321,7 +321,7 @@ class Worker(object):
                     )
 
             for name, pb in res.model.dense_parameters.items():
-                array = pb_to_ndarry(pb)
+                array = pb_to_ndarray(pb)
                 self._non_embed_vars[name].assign(array)
             self._model_versions_from_ps[ps_id] = res.model.version
 
@@ -474,7 +474,7 @@ class Worker(object):
             pb_future_and_id_pairs.append((pb_future, ps_id))
         for pb_future, ps_id in pb_future_and_id_pairs:
             pb = pb_future.result()
-            embeddings.append(pb_to_ndarry(pb))
+            embeddings.append(pb_to_ndarray(pb))
             index.extend(ps_ids_index[ps_id])
         embeddings = np.concatenate(embeddings)
 

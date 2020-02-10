@@ -108,7 +108,8 @@ message PullDenseParametersRequest {
 
 message PullDenseParametersResponse {
   bool initialized = 1;
-  map<string, Tensor> dense_parameters = 2;
+  int32 version = 2;
+  map<string, Tensor> dense_parameters = 3;
 }
 
 message PullEmbeddingTableRequest {

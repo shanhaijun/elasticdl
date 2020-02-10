@@ -9,7 +9,7 @@ from elasticdl.python.common.tensor_utils import (
     Tensor,
     ndarray_to_pb,
     pb_to_indexed_slices,
-    pb_to_ndarry,
+    pb_to_ndarray,
     serialize_ndarray,
 )
 from elasticdl.python.ps.optimizer_wrapper import OptimizerWrapper
@@ -69,14 +69,14 @@ class PserverServicer(elasticdl_pb2_grpc.PserverServicer):
         # TODO: use a read-write lock to support multiple concurrent reads
         if not self._use_async:
             self._lock.acquire()
-        res.model.version = self._parameters.version
+        res.version = self._parameters.version
         # No need to send variables if the requester has the latest version.
         if self._parameters.version > request.current_model_version:
             for name, var in self._parameters.non_embedding_params.items():
                 res.dense_parameters[name] = ndarray_to_pb(var.numpy())
         if not self._use_async:
             self._lock.release()
-        res.model_init_status = True
+        res.initialized = True
         return res
 
     def pull_embedding_table(self, request, _):
@@ -110,7 +110,7 @@ class PserverServicer(elasticdl_pb2_grpc.PserverServicer):
             grad_vars = []
 
             for name, pb in request.dense_parameters.items():
-                grad = pb_to_ndarry(pb)
+                grad = pb_to_ndarray(pb)
                 self._parameters.check_grad(Tensor(name, grad, None))
                 grad = tf.constant(grad)
                 var = self._parameters.get_non_embedding_param(name)

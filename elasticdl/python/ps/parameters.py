@@ -5,7 +5,7 @@ from elasticdl.python.common.tensor_utils import (
     indexed_slices_to_pb,
     ndarray_to_pb,
     pb_to_indexed_slices,
-    pb_to_ndarry,
+    pb_to_ndarray,
 )
 from elasticdl.python.ps.embedding_table import (
     EmbeddingTable,
@@ -133,7 +133,7 @@ class Parameters(object):
                 # If you pass a name "somename" to a `tf.Variable`, the final
                 # variable name will be "somename:0". So the `tf.Variable.name`
                 # is meaningless, we must avoid use it in PS side.
-                arr = pb_to_ndarry(pb)
+                arr = pb_to_ndarray(pb)
                 var = tf.Variable(initial_value=arr, trainable=True)
                 self.non_embedding_params[name] = var
 

@@ -85,7 +85,7 @@ message Tensor {
 }
 
 message IndexedSlices {
-  Tensor concat_embedding_vecs = 1;
+  Tensor concated_vectors = 1;
   repeated int64 ids = 2;
 }
 
@@ -126,17 +126,17 @@ message PushGradientResponse {
 
 // PS service
 service Pserver {
-  rpc pull_dense_params(PullDenseParametersRequest)
+  rpc pull_dense_parameters(PullDenseParametersRequest)
       returns (PullDenseParametersResponse);
   rpc pull_embedding_table(PullEmbeddingTableRequest) returns (IndexedSlices);
-  rpc push_dense_params(Model) returns (google.protobuf.Empty);
+  rpc push_dense_parameters(Model) returns (google.protobuf.Empty);
   rpc push_embedding_table_infos(EmbeddingTableInfos)
       returns (google.protobuf.Empty);
-  rpc push_gradient(Model) returns (PushGradientResponse);
+  rpc push_gradients(Model) returns (PushGradientResponse);
 }
 
 message ReportEvaluationMetricsRequest {
-  repeated Tensor model_outputs = 1;
+  map<string, Tensor> model_outputs = 1;
   Tensor labels = 2;
 }
 

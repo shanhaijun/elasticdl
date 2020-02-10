@@ -15,8 +15,8 @@ type EmbeddingTable struct {
 // NewIndexedSlices return proto.IndexedSlices
 func NewIndexedSlices(t *proto.Tensor, indices []int64) *proto.IndexedSlices {
 	var i = proto.IndexedSlices{
-		ConcatEmbeddingVecs: t,
-		Ids:                 indices,
+		ConcatedVectors: t,
+		Ids:             indices,
 	}
 	return &i
 }
@@ -50,8 +50,8 @@ func (e *EmbeddingTable) GetEmbeddingVectors(indices []int64) *proto.IndexedSlic
 		SetTensorRow(tensor, int64(i), e.GetEmbeddingVector(index))
 	}
 	var i = proto.IndexedSlices{
-		ConcatEmbeddingVecs: tensor,
-		Ids:                 indices,
+		ConcatedVectors: tensor,
+		Ids:             indices,
 	}
 	return &i
 }
@@ -60,7 +60,7 @@ func (e *EmbeddingTable) GetEmbeddingVectors(indices []int64) *proto.IndexedSlic
 func (e *EmbeddingTable) SetEmbeddingVectors(is *proto.IndexedSlices) error {
 	for i, index := range is.Ids {
 		value := e.GetEmbeddingVector(index)
-		copy(value.Content, RowOfTensor(is.ConcatEmbeddingVecs, int64(i)).Content)
+		copy(value.Content, RowOfTensor(is.ConcatedVectors, int64(i)).Content)
 	}
 	return nil
 }

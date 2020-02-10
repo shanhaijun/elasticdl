@@ -22,7 +22,7 @@ func TestEmbeddingTableGet(t *testing.T) {
 
 	indices := []int64{1, 3, 5, 7, 9}
 	v := e1.GetEmbeddingVectors(indices)
-	assert.Equal(t, Slice(v.ConcatEmbeddingVecs).([]float32), []float32{1, 2, 0, 0, 0, 0, 0, 0, 0, 0})
+	assert.Equal(t, Slice(v.ConcatedVectors).([]float32), []float32{1, 2, 0, 0, 0, 0, 0, 0, 0, 0})
 }
 
 func TestEmbeddingTableSet(t *testing.T) {

@@ -125,7 +125,7 @@ message PushGradientResponse {
 service Pserver {
   rpc pull_dense_parameters(PullDenseParametersRequest)
       returns (PullDenseParametersResponse);
-  rpc pull_embedding_table(PullEmbeddingTableRequest) returns (IndexedSlices);
+  rpc pull_embedding_table(PullEmbeddingTableRequest) returns (Tensor);
   rpc push_dense_parameters(Model) returns (google.protobuf.Empty);
   rpc push_embedding_table_infos(Model) returns (google.protobuf.Empty);
   rpc push_gradients(Model) returns (PushGradientResponse);

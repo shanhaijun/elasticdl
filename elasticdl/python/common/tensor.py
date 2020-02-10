@@ -10,28 +10,11 @@ from elasticdl.python.common.dtypes import (
 
 class Tensor(object):
     """Data structure for tensors in ElasticDL.
-
-    `Tensor` can save dense tensors and sparse tensors. For sparse tensors,
-    this structure saves them in the same way as `TensorFlow.IndexedSlices`.
+    `Tensor` represents a dense tensor.
     """
 
-    def __init__(self, values=None, indices=None, name=None):
-        """
-        `Tensor` can save dense tensors and sparse tensors.
-        To pass in a dense tensor, `values` should be `numpy.ndarray` and
-            `indices` should be None.
-        There are two ways to pass in a sparse tensor:
-            * `values` is a `numpy.ndarray` and `indices` is a `numpy.ndarray`.
-            * `values` is a `TensorFlow.IndexedSlices` and `indices` is None.
-
-        Args:
-            values: A `numpy.ndarray` or `TensorFlow.IndexedSlices`.
-                If `values` is a `TensorFlow.IndexedSlices`, `indices` should
-                be None.
-            indices: A `numpy.ndarray` or None.
-            name: A python string.
-        """
-        self.set(values, indices, name)
+    def __init__(self, values=None):
+        self.set(values)
 
     @classmethod
     def from_tensor_pb(cls, tensor_pb):
@@ -43,30 +26,10 @@ class Tensor(object):
         deserialize_tensor_pb(tensor_pb, tensor)
         return tensor
 
-    def set(self, values=None, indices=None, name=None):
-        self.name = name
-        if isinstance(values, tf.IndexedSlices):
-            if indices is not None:
-                raise ValueError(
-                    "When creating a Tensor object with values of type "
-                    "tf.IndexedSlices, indices must be None."
-                )
-            if values.dense_shape is not None:
-                # TODO(yunjian.lmh): Support dense shape
-                pass
-
-            self.values = values.values.numpy()
-            self.indices = values.indices.numpy()
-        else:
-            self.values = (
-                values.numpy() if isinstance(values, tf.Tensor) else values
-            )
-            self.indices = (
-                indices.numpy() if isinstance(indices, tf.Tensor) else indices
-            )
-
-    def is_indexed_slices(self):
-        return self.indices is not None
+    def set(self, values=None):
+        self.values = (
+            values.numpy() if isinstance(values, tf.Tensor) else values
+        )
 
     def to_tensor_pb(self):
         tensor_pb = elasticdl_pb2.Tensor()
@@ -74,37 +37,10 @@ class Tensor(object):
         return tensor_pb
 
     def to_tf_tensor(self):
-        if self.is_indexed_slices():
-            return tf.IndexedSlices(self.values, self.indices)
-        else:
-            return tf.constant(self.values)
+        return tf.constant(self.values)
 
     def to_ndarray(self):
-        if self.is_indexed_slices():
-            # Currently Tensor does not have a field representing dense shape,
-            # thus can not convert it to numpy.ndarray.
-            raise NotImplementedError(
-                "Converting an ElasticDL Tensor object, which contains a "
-                "sparse tensor, to a numpy.ndarray is not supported."
-            )
         return self.values
-
-    def __add__(self, other):
-        if self.is_indexed_slices() and other.is_indexed_slices():
-            self.values = np.concatenate((self.values, other.values), axis=0)
-            self.indices = np.concatenate(
-                (self.indices, other.indices), axis=0
-            )
-        elif not self.is_indexed_slices() and not other.is_indexed_slices():
-            self.values = self.values + other.values
-        else:
-            raise NotImplementedError(
-                "Only Tensor with the same type could be added"
-            )
-        return self
-
-    def __radd__(self, other):
-        return self + other
 
 
 def serialize_tensor(tensor, tensor_pb):
@@ -115,12 +51,8 @@ def serialize_tensor(tensor, tensor_pb):
             "Dtype of ndarray %s is not supported", tensor.values.dtype
         )
     tensor_pb.dtype = dtype
-    tensor_pb.dim.extend(tensor.values.shape)
+    tensor_pb.dims.extend(tensor.values.shape)
     tensor_pb.content = tensor.values.tobytes()
-    if tensor.is_indexed_slices():
-        tensor_pb.indices.extend(tuple(tensor.indices))
-    if tensor.name:
-        tensor_pb.name = tensor.name
 
 
 def deserialize_tensor_pb(tensor_pb, tensor):
@@ -129,13 +61,13 @@ def deserialize_tensor_pb(tensor_pb, tensor):
     Note that the input tensor protocol buffer is reset and underlying buffer
     is passed to the returned ndarray.
     """
-    if not tensor_pb.dim:
+    if not tensor_pb.dims:
         raise ValueError("Tensor PB has no dim defined")
 
     dtype = dtype_tensor_to_numpy(tensor_pb.dtype)
     # Check that the buffer size agrees with dimensions.
     size = dtype.itemsize
-    for d in tensor_pb.dim:
+    for d in tensor_pb.dims:
         size *= d
     if size != len(tensor_pb.content):
         raise ValueError(
@@ -145,10 +77,8 @@ def deserialize_tensor_pb(tensor_pb, tensor):
         )
     tensor.set(
         values=np.ndarray(
-            shape=tensor_pb.dim, dtype=dtype, buffer=tensor_pb.content
+            shape=tensor_pb.dims, dtype=dtype, buffer=tensor_pb.content
         ),
-        indices=np.array(tensor_pb.indices) if tensor_pb.indices else None,
-        name=tensor_pb.name,
     )
     tensor_pb.Clear()
 
@@ -175,13 +105,12 @@ def emplace_tensor_pb_from_ndarray(
 
         ```
         pb = elasticdl_pb2.Tensor()
-        pb.dim.extend([3])
-        pb.name = "test"
+        pb.dims.extend([3])
         pb.dtype = DT_INT64
         pb.content = np.array([1, 2, 3]).tobytes()
         tensor_pb_list.append(pb) # slow, because append copies pb
         ```
     """
     tensor_pb = tensor_pb_list.add()
-    tensor = Tensor(values, indices, name)
+    tensor = Tensor(values)
     serialize_tensor(tensor, tensor_pb)

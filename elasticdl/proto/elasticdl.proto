@@ -89,10 +89,17 @@ message IndexedSlices {
   repeated int64 ids = 2;
 }
 
+message EmbeddingTableInfo {
+  string name = 1;
+  int64 dim = 2;
+  string initializer = 3;
+}
+
 message Model {
   int32 version = 1;  // model updated times
   map<string, Tensor> dense_parameters = 2;
   map<string, IndexedSlices> indexed_slices = 3;
+  repeated EmbeddingTableInfo embedding_table_infos = 4;
 }
 
 message PullDenseParametersRequest {
@@ -109,16 +116,6 @@ message PullEmbeddingTableRequest {
   repeated int64 indices = 2;
 }
 
-message EmbeddingTableInfo {
-  string name = 1;
-  int64 dim = 2;
-  string initializer = 3;
-}
-
-message EmbeddingTableInfos {
-  repeated EmbeddingTableInfo embedding_table_infos = 1;
-}
-
 message PushGradientResponse {
   bool accepted = 1;
   int32 version = 2;
@@ -130,8 +127,7 @@ service Pserver {
       returns (PullDenseParametersResponse);
   rpc pull_embedding_table(PullEmbeddingTableRequest) returns (IndexedSlices);
   rpc push_dense_parameters(Model) returns (google.protobuf.Empty);
-  rpc push_embedding_table_infos(EmbeddingTableInfos)
-      returns (google.protobuf.Empty);
+  rpc push_embedding_table_infos(Model) returns (google.protobuf.Empty);
   rpc push_gradients(Model) returns (PushGradientResponse);
 }
 

@@ -1,4 +1,4 @@
-import collections
+from collections import namedtuple
 
 import numpy as np
 import tensorflow as tf
@@ -8,6 +8,9 @@ from elasticdl.python.common.dtypes import (
     dtype_numpy_to_tensor,
     dtype_tensor_to_numpy,
 )
+
+IndexedSlices = namedtuple("IndexedSlices", ("values", "indices"))
+Tensor = namedtuple("Tensor", ("name", "values", "indices"))
 
 
 def serialize_ndarray(array, pb):
@@ -41,9 +44,6 @@ def pb_to_ndarry(pb):
         )
     array = np.ndarray(shape=pb.dims, dtype=dtype, buffer=pb.content)
     return array
-
-
-IndexedSlices = collections.namedtuple("IndexedSlices", ["values", "indices"])
 
 
 def pb_to_indexed_slices(pb):

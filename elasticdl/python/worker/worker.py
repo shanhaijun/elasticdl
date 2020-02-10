@@ -320,7 +320,7 @@ class Worker(object):
                         "PS pod %d cannot be initialized" % ps_id
                     )
 
-            for name, pb in res.model.dense_parameters:
+            for name, pb in res.model.dense_parameters.items():
                 array = pb_to_ndarry(pb)
                 self._non_embed_vars[name].assign(array)
             self._model_versions_from_ps[ps_id] = res.model.version

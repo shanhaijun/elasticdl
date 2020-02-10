@@ -1,12 +1,11 @@
 import tensorflow as tf
 
 from elasticdl.proto import elasticdl_pb2
-from elasticdl.python.common.tensor import (
-    Tensor,
-    deserialize_tensor_pb,
-    emplace_tensor_pb_from_ndarray,
-    serialize_tensor,
-    tensor_pb_to_ndarray,
+from elasticdl.python.common.tensor_utils import (
+    indexed_slices_to_pb,
+    ndarray_to_pb,
+    pb_to_indexed_slices,
+    pb_to_ndarry,
 )
 from elasticdl.python.ps.embedding_table import (
     EmbeddingTable,
@@ -63,7 +62,7 @@ class Parameters(object):
             param_shape = tuple(
                 self.non_embedding_params[name].get_shape().as_list()
             )
-            if grad.is_indexed_slices():
+            if grad.indices is not None:
                 dim0 = tf.math.reduce_max(grad.indices).numpy()
                 dim1 = grad.values.shape[1]
                 if dim0 > param_shape[0] or dim1 != param_shape[1]:
@@ -127,31 +126,24 @@ class Parameters(object):
             A bool indicates whether `Parameters` accepts this model pb or not.
         """
         if not self.init_status:
-            tensors_pb = model_pb.param
-            embeddings_pb = model_pb.embedding_table_info
-            self.init_embedding_params(embeddings_pb)
-            self._restore_params_from_pb(tensors_pb)
-            self.version = max(0, model_pb.version)
-            self.init_status = True
-            return True
-        return False
-
-    def _restore_params_from_pb(self, tensors_pb):
-        for pb in tensors_pb:
-            name = pb.name
-            if not pb.indices:
+            infos = model_pb.embedding_table_infos
+            self.init_embedding_params(infos)
+            for name, pb in model_pb.dense_parameters.items():
                 # Please note that `tf.Variable` will do something with magic.
                 # If you pass a name "somename" to a `tf.Variable`, the final
                 # variable name will be "somename:0". So the `tf.Variable.name`
                 # is meaningless, we must avoid use it in PS side.
-                arr = tensor_pb_to_ndarray(pb)
+                arr = pb_to_ndarry(pb)
                 var = tf.Variable(initial_value=arr, trainable=True)
                 self.non_embedding_params[name] = var
-            else:
-                # Only pb of embedding parameters has indices.
-                tensor = Tensor()
-                deserialize_tensor_pb(pb, tensor)
-                self.embedding_params[name].set(tensor.indices, tensor.values)
+
+            for name, pb in model_pb.indexed_slices.items():
+                s = pb_to_indexed_slices(pb)
+                self.embedding_params[name].set(s.indices, s.values)
+            self.version = max(0, model_pb.version)
+            self.init_status = True
+            return True
+        return False
 
     def init_embedding_params(self, embeddings_pb):
         for pb in embeddings_pb:
@@ -184,21 +176,19 @@ class Parameters(object):
         model_pb = elasticdl_pb2.Model()
         model_pb.version = self.version
         for name, var in self.non_embedding_params.items():
-            emplace_tensor_pb_from_ndarray(
-                model_pb.param, var.numpy(), name=name
+            model_pb.dense_parameters[name].CopyFrom(
+                ndarray_to_pb(var.numpy())
             )
 
         for name, embedding_table in self.embedding_params.items():
             # Slot embedding table is not weights in the model, so we don't
             # save it to checkpoint.
             if not embedding_table.is_slot:
-                embedding_table_tensor = embedding_table.to_tensor()
-                tensor_pb = model_pb.param.add()
-                serialize_tensor(embedding_table_tensor, tensor_pb)
-
+                model_pb.indexed_slices[name].CopyFrom(
+                    indexed_slices_to_pb(embedding_table.to_indexed_slices())
+                )
                 embedding_info = embedding_table.to_embedding_table_info_pb()
-                model_pb.embedding_table_info.append(embedding_info)
-
+                model_pb.embedding_table_infos.append(embedding_info)
         return model_pb
 
     def debug_info(self):

@@ -29,7 +29,7 @@ from elasticdl.python.common.model_utils import (
     get_model_spec,
     get_non_embedding_trainable_vars,
 )
-from elasticdl.python.common.tensor import Tensor, tensor_pb_to_ndarray
+from elasticdl.python.common.tensor import ndarray_to_pb, pb_to_ndarry
 from elasticdl.python.common.tensor_utils import deduplicate_indexed_slices
 from elasticdl.python.common.timing_utils import Timing
 from elasticdl.python.elasticdl.feature_column import feature_column
@@ -305,7 +305,7 @@ class Worker(object):
             res = var_future.result()
             if not res.model_init_status:
                 # push variable to ps for initialization
-                self.report_variable_to_ps(ps_id)
+                self.push_dense_parameters_to_ps(ps_id)
                 req = elasticdl_pb2.PullDenseParametersRequest()
                 req.version = self._model_versions_from_ps[ps_id]
                 res = self._ps_stubs[ps_id].pull_dense_parameters(req)
@@ -315,9 +315,9 @@ class Worker(object):
                         "PS pod %d cannot be initialized" % ps_id
                     )
 
-            for name, tensor_pb in res.model.dense_parameters:
-                tensor = Tensor.from_tensor_pb(tensor_pb)
-                self._non_embed_vars[name].assign(tensor.to_ndarray())
+            for name, pb in res.model.dense_parameters:
+                array = pb_to_ndarry(pb)
+                self._non_embed_vars[name].assign(array)
             self._model_versions_from_ps[ps_id] = res.model.version
 
         self._model_version = max(self._model_versions_from_ps)
@@ -329,8 +329,7 @@ class Worker(object):
         if ps_id in self._ps_vars:
             vars = self._ps_vars[ps_id]
             for var in vars:
-                tensor = Tensor(var.numpy())
-                model.dense_parameters[var.name] = tensor.to_tensor_pb()
+                model.dense_parameters[var.name] = ndarray_to_pb(var.numpy())
         self._ps_stubs[ps_id].pull_dense_parameters(model)
 
     def push_dense_parameters(self):
@@ -355,7 +354,7 @@ class Worker(object):
         for ps_id in ps_grads:
             req = reqs[ps_id]
             for g, name in ps_grads[ps_id]:
-                req.dense_parametsrs[name] = Tensor(g).to_tensor_pb()
+                req.dense_parametsrs[name] = ndarray_to_pb(g)
 
         edl_embedding_name_values = self._collect_edl_embedding_name_values()
 
@@ -465,7 +464,7 @@ class Worker(object):
             pb_future_and_id_pairs.append((pb_future, ps_id))
         for pb_future, ps_id in pb_future_and_id_pairs:
             pb = pb_future.result()
-            embeddings.append(tensor_pb_to_ndarray(pb))
+            embeddings.append(pb_to_ndarry(pb))
             index.extend(ps_ids_index[ps_id])
         embeddings = np.concatenate(embeddings)
 
@@ -549,9 +548,9 @@ class Worker(object):
         req = elasticdl_pb2.ReportEvaluationMetricsRequest()
         for name, output in model_outputs.items():
             output = np.concatenate(output)
-            req.model_outputs[name] = Tensor(output).to_tensor_pb()
+            req.model_outputs[name] = ndarray_to_pb(output)
         labels = np.concatenate(labels)
-        req.labels = Tensor(labels).to_tensor_pb()
+        req.labels = ndarray_to_pb(labels)
         self._stub.report_evaluation_metrics(req)
 
     def report_prediction_outputs(self, predictions):

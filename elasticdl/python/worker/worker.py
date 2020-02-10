@@ -30,7 +30,9 @@ from elasticdl.python.common.model_utils import (
     get_non_embedding_trainable_vars,
 )
 from elasticdl.python.common.tensor_utils import (
+    IndexedSlices,
     deduplicate_indexed_slices,
+    indexed_slices_to_pb,
     ndarray_to_pb,
     pb_to_ndarry,
 )
@@ -397,17 +399,17 @@ class Worker(object):
                     values=g_values, indices=g_indices
                 )
 
-                _ = scatter_embedding_vector(
+                results = scatter_embedding_vector(
                     g_values.numpy(), g_indices.numpy(), self._ps_num
                 )
 
                 # TODO indexed_slices deserialize
-                # for ps_id in results:
-                #     req = reqs[ps_id]
-                #     gv, gi = results[ps_id]
-                #     emplace_tensor_pb_from_ndarray(
-                #         req.gradients, values=gv, indices=gi, name=name
-                #     )
+                for ps_id in results:
+                    req = reqs[ps_id]
+                    gv, gi = results[ps_id]
+                    req.indexed_slices[name] = indexed_slices_to_pb(
+                        IndexedSlices(gv, gi)
+                    )
 
         report_futures = []
         for ps_id in range(self._ps_num):
@@ -467,7 +469,7 @@ class Worker(object):
             pb_future_and_id_pairs.append((pb_future, ps_id))
         for pb_future, ps_id in pb_future_and_id_pairs:
             pb = pb_future.result()
-            embeddings.append(pb_to_ndarry(pb))
+            embeddings.append(pb_to_ndarry(pb.concated_vectors))
             index.extend(ps_ids_index[ps_id])
         embeddings = np.concatenate(embeddings)
 
@@ -589,7 +591,7 @@ class Worker(object):
             if self._use_multi_ps:
                 self.init_ps_var_partition()
             else:
-                self.report_variable()
+                self.push_dense_parameters()
             self._var_created = True
 
         if self._need_embedding_layer_check:
@@ -804,9 +806,9 @@ class Worker(object):
                 break
             elif task_type == elasticdl_pb2.TRAINING:
                 # TODO: optimize the logic to avoid unnecessary
-                #       get_model call.
+                #       pull_dense_parameters call.
                 if not train_with_local_model:
-                    self.get_model()
+                    self.pull_dense_parameters()
                 *accepted, min_model_version, loss = self._run_training_task(
                     features, labels
                 )
@@ -815,7 +817,7 @@ class Worker(object):
                     break
             elif task_type == elasticdl_pb2.PREDICTION:
                 if self._model_version != min_model_version:
-                    self.get_model()
+                    self.pull_dense_parameters()
                 accepted = self._run_prediction_task(features)
                 if accepted:
                     break
@@ -1031,7 +1033,7 @@ class Worker(object):
                 break
             # get the latest model before processing eval tasks
             if not is_model_got:
-                self.get_model()
+                self.pull_dense_parameters()
                 is_model_got = True
             self._process_eval_task(task)
             evaluation_task_executed = True

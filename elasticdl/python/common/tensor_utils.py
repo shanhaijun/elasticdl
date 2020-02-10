@@ -1,3 +1,5 @@
+import collections
+
 import numpy as np
 import tensorflow as tf
 
@@ -39,6 +41,9 @@ def pb_to_ndarry(pb):
         )
     array = np.ndarray(shape=pb.dims, dtype=dtype, buffer=pb.content)
     return array
+
+
+IndexedSlices = collections.namedtuple("IndexedSlices", ["values", "indices"])
 
 
 def pb_to_indexed_slices(pb):

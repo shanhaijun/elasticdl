@@ -8,14 +8,18 @@ from elasticdl.python.common.dtypes import (
 )
 
 
-def ndarray_to_pb(array):
-    pb = elasticdl_pb2.Tensor()
+def serialize_ndarray(array, pb):
     dtype = dtype_numpy_to_tensor(array.dtype)
     if not dtype:
         raise ValueError("Dtype of ndarray %s is not supported", array.dtype)
     pb.dtype = dtype
     pb.dims.extend(array.shape)
     pb.content = array.tobytes()
+
+
+def ndarray_to_pb(array):
+    pb = elasticdl_pb2.Tensor()
+    serialize_ndarray(array, pb)
     return pb
 
 
@@ -35,6 +39,24 @@ def pb_to_ndarry(pb):
         )
     array = np.ndarray(shape=pb.dims, dtype=dtype, buffer=pb.content)
     return array
+
+
+def pb_to_indexed_slices(pb):
+    concated_vectors = pb_to_ndarry(pb.concated_vectors)
+    values = [int(i) for i in pb.ids]
+    return tf.IndexedSlices(concated_vectors, values)
+
+
+def indexed_slices_to_pb(slices):
+    pb = elasticdl_pb2.IndexedSlices()
+    serialize_ndarray(slices.values, pb.concated_vectors)
+    if len(slices.indices.shape) > 1:
+        raise ValueError(
+            "IndexedSlices pb only accepts indices with one dimension, got %d",
+            len(slices.indices.shape),
+        )
+    pb.ids.extend(slices.indices)
+    return pb
 
 
 def merge_indexed_slices(*args):

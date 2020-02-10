@@ -29,13 +29,13 @@ class Parameters(object):
 
     def __init__(self):
         self.version = 0
-        self.init_status = False
+        self.initialized = False
         self.non_embedding_params = {}
         self.embedding_params = {}
 
     def reset(self):
         self.version = 0
-        self.init_status = False
+        self.initialized = False
         self.non_embedding_params.clear()
         self.embedding_params.clear()
 
@@ -125,7 +125,7 @@ class Parameters(object):
         Returns:
             A bool indicates whether `Parameters` accepts this model pb or not.
         """
-        if not self.init_status:
+        if not self.initialized:
             infos = model_pb.embedding_table_infos
             self.init_embedding_params(infos)
             for name, pb in model_pb.dense_parameters.items():
@@ -141,7 +141,7 @@ class Parameters(object):
                 s = pb_to_indexed_slices(pb)
                 self.embedding_params[name].set(s.indices, s.values)
             self.version = max(0, model_pb.version)
-            self.init_status = True
+            self.initialized = True
             return True
         return False
 

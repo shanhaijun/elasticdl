@@ -302,13 +302,13 @@ class Worker(object):
                 continue
             # async grpc call
             req = elasticdl_pb2.PullDenseParametersRequest()
-            req.current_model_version = self._model_versions_from_ps[ps_id]
+            req.version = self._model_versions_from_ps[ps_id]
             var_future = stub.pull_dense_parameters.future(req)
             variable_future_and_id_pairs.append((var_future, ps_id))
 
         for var_future, ps_id in variable_future_and_id_pairs:
             res = var_future.result()
-            if not res.model_init_status:
+            if not res.initialized:
                 # push variable to ps for initialization
                 self.push_dense_parameters_to_ps(ps_id)
                 req = elasticdl_pb2.PullDenseParametersRequest()

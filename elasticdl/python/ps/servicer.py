@@ -61,7 +61,7 @@ class PserverServicer(elasticdl_pb2_grpc.PserverServicer):
         Response with all non-embedding parameters if initialized.
         """
         res = elasticdl_pb2.PullDenseParametersResponse()
-        if not self._parameters.init_status:
+        if not self._parameters.initialized:
             res.initialized = False
             return res
 
@@ -71,9 +71,9 @@ class PserverServicer(elasticdl_pb2_grpc.PserverServicer):
             self._lock.acquire()
         res.version = self._parameters.version
         # No need to send variables if the requester has the latest version.
-        if self._parameters.version > request.current_model_version:
+        if self._parameters.version > request.version:
             for name, var in self._parameters.non_embedding_params.items():
-                res.dense_parameters[name] = ndarray_to_pb(var.numpy())
+                res.dense_parameters[name].CopyFrom(ndarray_to_pb(var.numpy()))
         if not self._use_async:
             self._lock.release()
         res.initialized = True
@@ -99,7 +99,7 @@ class PserverServicer(elasticdl_pb2_grpc.PserverServicer):
     def push_embedding_table_infos(self, request, _):
         with self._lock:
             self._parameters.init_embedding_params(
-                request.embedding_table_info
+                request.embedding_table_infos
             )
             self.wrap_optimizer_and_set_slot()
         return empty_pb2.Empty()
@@ -137,7 +137,7 @@ class PserverServicer(elasticdl_pb2_grpc.PserverServicer):
             self._report_version_if_needed(version)
 
             res.accepted = True
-            res.model_version = self._parameters.version
+            res.version = self._parameters.version
             return res
         else:
             if (

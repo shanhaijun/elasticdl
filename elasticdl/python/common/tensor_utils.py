@@ -55,7 +55,10 @@ def pb_to_indexed_slices(pb):
 def indexed_slices_to_pb(slices):
     pb = elasticdl_pb2.IndexedSlices()
     serialize_ndarray(slices.values, pb.concated_vectors)
-    if len(slices.indices.shape) > 1:
+    if (
+        isinstance(slices.indices, np.ndarray)
+        and len(slices.indices.shape) > 1
+    ):
         raise ValueError(
             "IndexedSlices pb only accepts indices with one dimension, got %d",
             len(slices.indices.shape),

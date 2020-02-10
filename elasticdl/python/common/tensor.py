@@ -93,9 +93,7 @@ def tensor_pb_to_tf_tensor(tensor_pb):
     return Tensor.from_tensor_pb(tensor_pb).to_tf_tensor()
 
 
-def emplace_tensor_pb_from_ndarray(
-    tensor_pb_list, values, indices=None, name=None
-):
+def emplace_tensor_pb_from_ndarray(tensor_pb_list, values):
     """Generate a tensor procotol buffer and append it to tensor_pb_list.
 
     Note:

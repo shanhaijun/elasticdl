@@ -72,7 +72,7 @@ def deserialize_tensor_pb(tensor_pb, tensor):
     if size != len(tensor_pb.content):
         raise ValueError(
             "Tensor PB size mismatch, dim: %s, len(content): %d",
-            tensor_pb.dim,
+            tensor_pb.dims,
             len(tensor_pb.content),
         )
     tensor.set(
@@ -91,24 +91,3 @@ def tensor_pb_to_ndarray(tensor_pb):
 def tensor_pb_to_tf_tensor(tensor_pb):
     """Deserialize tensor protocol buffer and return a TensorFlow tensor."""
     return Tensor.from_tensor_pb(tensor_pb).to_tf_tensor()
-
-
-def emplace_tensor_pb_from_ndarray(tensor_pb_list, values):
-    """Generate a tensor procotol buffer and append it to tensor_pb_list.
-
-    Note:
-        This function does not use list append function as following code
-            snippet. It is slow because append function will copy the input
-            protocol buffer.
-
-        ```
-        pb = elasticdl_pb2.Tensor()
-        pb.dims.extend([3])
-        pb.dtype = DT_INT64
-        pb.content = np.array([1, 2, 3]).tobytes()
-        tensor_pb_list.append(pb) # slow, because append copies pb
-        ```
-    """
-    tensor_pb = tensor_pb_list.add()
-    tensor = Tensor(values)
-    serialize_tensor(tensor, tensor_pb)

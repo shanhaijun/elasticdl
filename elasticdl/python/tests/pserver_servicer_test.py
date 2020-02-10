@@ -320,7 +320,6 @@ class PserverServicerTest(unittest.TestCase):
                     self._parameters.non_embedding_params[name].numpy(),
                 )
             )
-
         expected_embed_table = np.copy(self.embedding_table)
         for gv, gi in zip(
             self.embedding_grads0.values, self.embedding_grads0.indices
@@ -335,21 +334,19 @@ class PserverServicerTest(unittest.TestCase):
         # Test applying gradients with same name
         for name, var in zip(self.var_names, self.var_values):
             self._parameters.non_embedding_params[name] = tf.Variable(var)
+
         req = elasticdl_pb2.Model()
-        for g in self.grad_values1:
-            req.dense_parameters[self.var_names[0]].CopyFrom(ndarray_to_pb(g))
+        req.dense_parameters[self.var_names[0]].CopyFrom(
+            ndarray_to_pb(self.grad_values1[1])
+        )
         res = self._stub.push_gradients(req)
         self.assertEqual(res.accepted, True)
         self.assertEqual(res.version, 2)
         expected_values = [
-            self.var_values[0]
-            - self._lr * self.grad_values1[0]
-            - self._lr * self.grad_values1[1],
+            self.var_values[0] - self._lr * self.grad_values1[1],
             self.var_values[1],
         ]
         for expected_value, name in zip(expected_values, self.var_names):
-            print(expected_value)
-            print(self._parameters.non_embedding_params[name].numpy())
             self.assertTrue(
                 np.allclose(
                     expected_value,

@@ -249,7 +249,7 @@ class Worker(object):
         self._check_name_conflict_of_embedding_layer_and_column()
 
         if self._use_multi_ps:
-            self.report_embedding_info()
+            self.push_embedding_table_infos()
 
         self._need_embedding_layer_check = (
             True
@@ -333,7 +333,7 @@ class Worker(object):
             vars = self._ps_vars[ps_id]
             for var in vars:
                 model.dense_parameters[var.name] = ndarray_to_pb(var.numpy())
-        self._ps_stubs[ps_id].pull_dense_parameters(model)
+        self._ps_stubs[ps_id].push_dense_parameters(model)
 
     def push_dense_parameters(self):
         # TODO: call `push_dense_parameters_to_ps` in parallel
@@ -424,10 +424,10 @@ class Worker(object):
                 accepted = True
             if res.model_version > max_version:
                 max_version = res.model_version
-        self._timing.end_record_time("report_gradient")
+        self._timing.end_record_time("push_gradients")
         return accepted, max_version
 
-    def report_gradient_locally(self, grads):
+    def push_gradients_locally(self, grads):
         if self._embedding_layers or self._embedding_columns:
             raise ValueError(
                 "ElasticDL embedding layer is not supported when"
@@ -439,15 +439,15 @@ class Worker(object):
             self._non_embed_grads[v.name] = g
         return True, None
 
-    def report_gradient(self, grads):
+    def push_gradients(self, grads):
         if self._distribution_strategy == DistributionStrategy.ALLREDUCE:
-            return self.report_gradient_locally(grads)
+            return self.push_gradients_locally(grads)
         else:
             if self._use_multi_ps:
-                return self.report_gradient_to_ps(grads)
-            raise RuntimeError("Only support report gradients to PS")
+                return self.push_gradients_to_ps(grads)
+            raise RuntimeError("Only support push gradients to PS")
 
-    def pull_embedding_vector(self, layer_name, embedding_ids):
+    def pull_embedding_table(self, layer_name, embedding_ids):
         """Pulls and returns embedding vectors ordered by the embedding ids."""
         ps_ids = {}
         ps_ids_index = {}
@@ -460,10 +460,10 @@ class Worker(object):
         index = []
         pb_future_and_id_pairs = []
         for ps_id, embedding_ids in ps_ids.items():
-            req = elasticdl_pb2.PullEmbeddingVectorRequest()
+            req = elasticdl_pb2.PullEmbeddingTableRequest()
             req.name = layer_name
             req.ids.extend(embedding_ids)
-            pb_future = self._ps_stubs[ps_id].pull_embedding_vector.future(req)
+            pb_future = self._ps_stubs[ps_id].pull_embedding_table.future(req)
             pb_future_and_id_pairs.append((pb_future, ps_id))
         for pb_future, ps_id in pb_future_and_id_pairs:
             pb = pb_future.result()
@@ -475,6 +475,28 @@ class Worker(object):
         new_embeddings = np.empty_like(embeddings)
         new_embeddings[index] = embeddings
         return new_embeddings
+
+    def push_embedding_table_infos(self):
+        infos = elasticdl_pb2.EmbeddingTableInfos()
+        if self._embedding_layers:
+            for layer in self._embedding_layers:
+                info = infos.add()
+                info.name = layer.name
+                info.dim = layer.output_dim
+                info.initializer = layer.embeddings_initializer
+
+        if self._embedding_columns:
+            for column in self._embedding_columns:
+                info = infos.add()
+                info.name = column.name
+                info.dim = column.dimension
+                # TODO(brightcoder01): The initializer in embedding column is
+                # a variable initializer function. For embedding layer, it's a
+                # tf.keras.initializers. Keep aligned between these two.
+                info.initializer = "uniform"
+
+        for ps_id in range(self._ps_num):
+            self._ps_stubs[ps_id].push_embedding_table_infos(infos)
 
     def report_task_result(self, task_id, err_msg, exec_counters=None):
         """
@@ -498,30 +520,6 @@ class Worker(object):
             else:
                 ps_vars[ps_id].append(v)
         self._ps_vars = ps_vars
-
-    def report_embedding_info(self):
-        model = elasticdl_pb2.Model()
-        if self._embedding_layers:
-            embedding_infos = model.embedding_table_info
-            for layer in self._embedding_layers:
-                embedding_info = embedding_infos.add()
-                embedding_info.name = layer.name
-                embedding_info.dim = layer.output_dim
-                embedding_info.initializer = layer.embeddings_initializer
-
-        if self._embedding_columns:
-            embedding_infos = model.embedding_table_info
-            for column in self._embedding_columns:
-                embedding_info = embedding_infos.add()
-                embedding_info.name = column.name
-                embedding_info.dim = column.dimension
-                # TODO(brightcoder01): The initializer in embedding column is
-                # a variable initializer function. For embedding layer, it's a
-                # tf.keras.initializers. Keep aligned between these two.
-                embedding_info.initializer = "uniform"
-
-        for ps_id in range(self._ps_num):
-            self._ps_stubs[ps_id].push_embedding_info(model)
 
     def _collect_edl_embedding_name_values(self):
         """
@@ -612,7 +610,7 @@ class Worker(object):
         """
         return all trainable variables list, including batch embedding
         tensor (BET) if exists. take care to keep the same order as in
-        self.report_gradient()
+        self.push_gradients()
         """
         bets = []
         if self._embedding_layers:
@@ -717,9 +715,9 @@ class Worker(object):
         status, averaged_grads = self._collective_communicator.allreduce(grads)
         accepted = False
         if status == CollectiveCommunicatorStatus.SUCCEEDED:
-            accepted, _ = self.report_gradient(averaged_grads)
+            accepted, _ = self.push_gradients(averaged_grads)
             if not accepted:
-                self.logger.warning("Failed to report the averaged gradients")
+                self.logger.warning("Failed to push the averaged gradients")
         return accepted
 
     def _collect_gradients_with_allreduce_robust(self, grads):
@@ -742,7 +740,7 @@ class Worker(object):
             return True
 
     def _collect_gradients_without_allreduce(self, grads):
-        accepted, min_model_version = self.report_gradient(grads)
+        accepted, min_model_version = self.push_gradients(grads)
         if accepted and self._get_model_steps > 1:
             non_embed_vars_n = len(self._non_embed_vars)
             self._non_embed_grads = grads[:non_embed_vars_n]

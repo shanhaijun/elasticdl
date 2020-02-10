@@ -29,8 +29,11 @@ from elasticdl.python.common.model_utils import (
     get_model_spec,
     get_non_embedding_trainable_vars,
 )
-from elasticdl.python.common.tensor import ndarray_to_pb, pb_to_ndarry
-from elasticdl.python.common.tensor_utils import deduplicate_indexed_slices
+from elasticdl.python.common.tensor_utils import (
+    deduplicate_indexed_slices,
+    ndarray_to_pb,
+    pb_to_ndarry,
+)
 from elasticdl.python.common.timing_utils import Timing
 from elasticdl.python.elasticdl.feature_column import feature_column
 from elasticdl.python.elasticdl.layers.embedding import Embedding

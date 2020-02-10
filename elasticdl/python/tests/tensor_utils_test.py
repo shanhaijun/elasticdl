@@ -3,10 +3,10 @@ import unittest
 
 import numpy as np
 
-from elasticdl.python.common.tensor import ndarray_to_pb, pb_to_ndarry
+from elasticdl.python.common.tensor_utils import ndarray_to_pb, pb_to_ndarry
 
 
-class TensorTest(unittest.TestCase):
+class TensorUtilsTest(unittest.TestCase):
     def test_round_trip(self):
         def verify(array):
             pb = ndarray_to_pb(array)

@@ -479,7 +479,8 @@ class Worker(object):
         return new_embeddings
 
     def push_embedding_table_infos(self):
-        infos = elasticdl_pb2.EmbeddingTableInfos()
+        model = elasticdl_pb2.Model()
+        infos = model.embedding_table_infos
         if self._embedding_layers:
             for layer in self._embedding_layers:
                 info = infos.add()
@@ -498,7 +499,7 @@ class Worker(object):
                 info.initializer = "uniform"
 
         for ps_id in range(self._ps_num):
-            self._ps_stubs[ps_id].push_embedding_table_infos(infos)
+            self._ps_stubs[ps_id].push_embedding_table_infos(model)
 
     def report_task_result(self, task_id, err_msg, exec_counters=None):
         """

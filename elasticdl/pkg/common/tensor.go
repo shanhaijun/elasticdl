@@ -117,7 +117,7 @@ func SetTensorRow(t *proto.Tensor, idx int64, vec *proto.Tensor) {
 	SetSubTensor(t, begin, t.Dims[1], vec)
 }
 
-// Slice gives a Slice interface to the Vector data
+// Slice gives a Slice interface to the Tensor data
 func Slice(t *proto.Tensor) interface{} {
 	length := int(DimProduct(t.Dims))
 	sliceHeader := reflect.SliceHeader{

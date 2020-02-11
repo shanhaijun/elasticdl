@@ -7,6 +7,8 @@ extern "C" {
 
 void AddTo(float* a, float* b, long long size);
 
+void Sum(void** tensors, long long num, long long size);
+
 void SGD(float* grad, float* param, float lr, long long size);
 
 void Adam(float* grad,

@@ -3,6 +3,16 @@
 #include <cmath>
 #include <eigen3/Eigen/Dense>
 
+void Sum(void** tensors, long long num, long long size) {
+  Eigen::Map<Eigen::Array<float, 1, Eigen::Dynamic>> res{
+      (float*)tensors[0], static_cast<Eigen::Index>(size)};
+  for (int i = 1; i < num; i++) {
+    Eigen::Map<Eigen::Array<float, 1, Eigen::Dynamic>> temp{
+        (float*)tensors[i], static_cast<Eigen::Index>(size)};
+    res += temp;
+  }
+}
+
 void AddTo(float* a, float* b, long long size) {
   Eigen::Map<Eigen::Array<float, 1, Eigen::Dynamic>> ea{
       a, static_cast<Eigen::Index>(size)};

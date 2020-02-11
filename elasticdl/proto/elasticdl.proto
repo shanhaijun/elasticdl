@@ -93,6 +93,7 @@ message EmbeddingTableInfo {
   string name = 1;
   int64 dim = 2;
   string initializer = 3;
+  ElementType dtype = 4;
 }
 
 message Model {
@@ -127,8 +128,7 @@ service Pserver {
   rpc pull_dense_parameters(PullDenseParametersRequest)
       returns (PullDenseParametersResponse);
   rpc pull_embedding_table(PullEmbeddingTableRequest) returns (Tensor);
-  rpc push_dense_parameters(Model) returns (google.protobuf.Empty);
-  rpc push_embedding_table_infos(Model) returns (google.protobuf.Empty);
+  rpc push_model(Model) returns (google.protobuf.Empty);
   rpc push_gradients(Model) returns (PushGradientResponse);
 }
 

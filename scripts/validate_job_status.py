@@ -120,10 +120,10 @@ def validate_job_status(client, job_type, ps_num, worker_num):
             print(client.get_pod_status(master_pod_name))
             print("Master log:")
             print(client.get_pod_log(master_pod_name))
-            for ps, pod_phase in zip(ps_pod_names, ps_pod_phases):
-                if check_failed([pod_phase]):
-                    print("PS %s log" % ps)
-                    print_tail_log(client.get_pod_log(ps), 50)
+            # for ps, pod_phase in zip(ps_pod_names, ps_pod_phases):
+            #     if check_failed([pod_phase]):
+            #         print("PS %s log" % ps)
+            #         print_tail_log(client.get_pod_log(ps), 50)
             for worker, pod_phase in zip(worker_pod_names, worker_pod_phases):
                 if check_failed([pod_phase]):
                     print("Worker %s log" % worker)
@@ -139,8 +139,8 @@ def validate_job_status(client, job_type, ps_num, worker_num):
                 "Master (metadata.labels.status): %s"
                 % client.get_pod_label_status(master_pod_name)
             )
-            for i, ps in enumerate(ps_pod_names):
-                print("PS%d: %s" % (i, client.get_pod_phase(ps)))
+            # for i, ps in enumerate(ps_pod_names):
+            #     print("PS%d: %s" % (i, client.get_pod_phase(ps)))
             for i, worker in enumerate(worker_pod_names):
                 print("Worker%d: %s" % (i, client.get_pod_phase(worker)))
             time.sleep(10)

@@ -86,6 +86,7 @@ jobs:
 branches:
   only:
   - develop
+  - allreduce-test
   - "/branch-\\d+\\.\\d+(\\.\\d+)?(-\\S*)?$/"
 
 env:

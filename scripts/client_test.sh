@@ -21,12 +21,9 @@ if [[ "$JOB_TYPE" == "train" ]]; then
       --master_resource_limit="cpu=1,memory=2048Mi" \
       --worker_resource_request="cpu=0.4,memory=2048Mi" \
       --worker_resource_limit="cpu=1,memory=3072Mi" \
-      --ps_resource_request="cpu=0.2,memory=1024Mi" \
-      --ps_resource_limit="cpu=1,memory=2048Mi" \
       --minibatch_size=64 \
       --num_minibatches_per_task=2 \
       --num_workers=$WORKER_NUM \
-      --num_ps_pods=$PS_NUM \
       --checkpoint_steps=500 \
       --evaluation_steps=500 \
       --tensorboard_log_dir=/tmp/tensorboard-log \
@@ -36,7 +33,8 @@ if [[ "$JOB_TYPE" == "train" ]]; then
       --log_level=INFO \
       --image_pull_policy=Never \
       --output=/saved_model/model_output \
-      --volume="host_path=${PWD},mount_path=/saved_model"
+      --volume="host_path=${PWD},mount_path=/saved_model" \
+      --distribution_strategy=AllreduceStrategy
 elif [[ "$JOB_TYPE" == "evaluate" ]]; then
     elasticdl evaluate \
       --image_base=elasticdl:ci \

@@ -86,7 +86,7 @@ def validate_job_status(client, job_type, ps_num, worker_num):
 
     for step in range(200):
         master_pod_phase = client.get_pod_phase(master_pod_name)
-        ps_pod_phases = [client.get_pod_phase(ps) for ps in ps_pod_names]
+        ps_pod_phases = ["Succeeded" for ps in ps_pod_names]
         worker_pod_phases = [
             client.get_pod_phase(worker) for worker in worker_pod_names
         ]

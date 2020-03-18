@@ -146,6 +146,12 @@ def validate_job_status(client, job_type, ps_num, worker_num):
             time.sleep(10)
 
     print("ElasticDL job timed out.")
+    print("Master log:")
+    print(client.get_pod_log(master_pod_name))
+    for worker, pod_phase in zip(worker_pod_names, worker_pod_phases):
+        if check_failed([pod_phase]):
+            print("Worker %s log" % worker)
+            print_tail_log(client.get_pod_log(worker), 50)
     client.delete_pod(master_pod_name)
     exit(-1)
 

@@ -153,7 +153,7 @@ COPY %s/elasticdl /elasticdl
     LOCAL_ZOO = """
 RUN pip install -r /elasticdl/requirements.txt \
   --extra-index-url="${EXTRA_PYPI_INDEX}"
-RUN make -f /elasticdl/Makefile
+# RUN make -f /elasticdl/Makefile
 COPY {MODEL_ZOO} /{MODEL_ZOO}
 """
     REMOTE_ZOO = """

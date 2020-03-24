@@ -123,16 +123,15 @@ def validate_job_status(client, job_type, ps_num, worker_num):
         ):
             print("ElasticDL job failed.")
             print(client.get_pod_status(master_pod_name))
-            print("Master log:")
-            print(client.get_pod_log(master_pod_name))
             # for ps, pod_phase in zip(ps_pod_names, ps_pod_phases):
             #     if check_failed([pod_phase]):
             #         print("PS %s log" % ps)
             #         print_tail_log(client.get_pod_log(ps), 50)
             for worker, pod_phase in zip(worker_pod_names, worker_pod_phases):
-                if check_failed([pod_phase]):
-                    print("Worker %s log" % worker)
-                    print_tail_log(client.get_pod_log(worker), 50)
+                print("Worker %s log" % worker)
+                print_tail_log(client.get_pod_log(worker), 100)
+            print("Master log:")
+            print(client.get_pod_log(master_pod_name))
             client.delete_pod(master_pod_name)
             exit(-1)
         else:
@@ -156,7 +155,7 @@ def validate_job_status(client, job_type, ps_num, worker_num):
     for worker, pod_phase in zip(worker_pod_names, worker_pod_phases):
         if check_failed([pod_phase]):
             print("Worker %s log" % worker)
-            print_tail_log(client.get_pod_log(worker), 50)
+            print_tail_log(client.get_pod_log(worker), 100)
     client.delete_pod(master_pod_name)
     exit(-1)
 

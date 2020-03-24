@@ -11,7 +11,7 @@ python -m scripts.gen_mnist_checkpoint --checkpoint_dir=${MNIST_CKPT_DIR}
 
 if [[ "$JOB_TYPE" == "train" ]]; then
     elasticdl train \
-      --image_base=elasticdl:ci \
+      --image_base=elasticdl:dev_allreduce \
       --model_zoo=model_zoo \
       --model_def=deepfm_functional_api.deepfm_functional_api.custom_model \
       --training_data=/data/frappe/train \

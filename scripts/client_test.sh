@@ -26,7 +26,6 @@ if [[ "$JOB_TYPE" == "train" ]]; then
       --num_workers=$WORKER_NUM \
       --checkpoint_steps=500 \
       --evaluation_steps=500 \
-      --tensorboard_log_dir=/tmp/tensorboard-log \
       --grads_to_wait=1 \
       --use_async=True \
       --job_name=test-train \
@@ -35,6 +34,8 @@ if [[ "$JOB_TYPE" == "train" ]]; then
       --output=/saved_model/model_output \
       --volume="host_path=${PWD},mount_path=/saved_model" \
       --distribution_strategy=AllreduceStrategy
+#      --tensorboard_log_dir=/tmp/tensorboard-log \
+
 elif [[ "$JOB_TYPE" == "evaluate" ]]; then
     elasticdl evaluate \
       --image_base=elasticdl:ci \

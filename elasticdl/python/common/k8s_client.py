@@ -412,7 +412,7 @@ class Client(object):
             name=self.get_collective_communicator_service_name(),
             port=_FTLIB_GOSSIP_CONTAINER_PORT,
             target_port=_FTLIB_GOSSIP_CONTAINER_PORT,
-            replica_type="master",
+            replica_type="worker",
             replica_index="0",
             owner=self.get_master_pod(),
         )

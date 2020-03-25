@@ -27,7 +27,8 @@ class CollectiveCommunicator(object):
                 consensus="gossip",
                 commlib="pytorch",
                 consensus_init_kwargs={
-                    "known_addr_list": list(self._get_peer_set(service_name))
+                    "known_addr_list": list(self._get_peer_set(service_name),),
+                    "custom_bind_addr": socket.gethostbyname(socket.gethostname()),
                 },
             )
         else:
@@ -96,4 +97,6 @@ class CollectiveCommunicator(object):
         my_ip = socket.gethostbyname(socket.gethostname())
         temp_set = socket.getaddrinfo(svc_name, 0, proto=socket.IPPROTO_TCP)
         peer_set = {peer[-1][0] for peer in temp_set if peer[-1][0] != my_ip}
+        # Note: Use the following code to reproduce the issue
+        # from ftlib import BasicFTLib; import socket; svc_name = "test-trainftlib-consensus"; my_ip = socket.gethostbyname(socket.gethostname()); temp_set = socket.getaddrinfo(svc_name, 0, proto=socket.IPPROTO_TCP); peer_set = {peer[-1][0] for peer in temp_set if peer[-1][0] != my_ip}; BasicFTLib(consensus="gossip", commlib="pytorch", consensus_init_kwargs={"known_addr_list": list(peer_set), "custom_bind_addr": socket.gethostbyname(socket.gethostname())})
         return peer_set

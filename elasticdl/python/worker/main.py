@@ -16,9 +16,9 @@ def main():
     logger.info("Starting worker %d", args.worker_id)
     if args.master_addr is None:
         raise ValueError("master_addr is missing for worker")
-    # import time
-    # logger.info("Start sleeping...")
-    # time.sleep(36000)
+    import time
+    logger.info("Wait for 50 seconds for FTLib service to start up...")
+    time.sleep(50)
     master_channel = build_channel(args.master_addr)
 
     ps_channels = []

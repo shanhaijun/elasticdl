@@ -27,7 +27,7 @@ class CollectiveCommunicator(object):
                 consensus="gossip",
                 commlib="pytorch",
                 consensus_init_kwargs={
-                    "known_addr_list": list(self._get_peer_set(service_name),),
+                    "known_addr_list": list(self._get_peer_set(service_name)),
                     "custom_bind_addr": socket.gethostbyname(socket.gethostname()),
                 },
             )
@@ -49,7 +49,7 @@ class CollectiveCommunicator(object):
             )
             return CollectiveCommunicatorStatus.FAILED, data
         if self._ftlib is not None:
-            res = self._ftlib.allreduce_average(data)
+            res = self._ftlib.wait_gradients_ready(data)
             if res == FTAllReduceStatus.SUCCESS:
                 return CollectiveCommunicatorStatus.SUCCEEDED, data
             else:

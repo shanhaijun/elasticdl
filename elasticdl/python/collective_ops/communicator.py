@@ -4,6 +4,8 @@ from elasticdl.python.common.constants import CollectiveCommunicatorStatus
 from elasticdl.python.common.log_utils import default_logger as logger
 
 try:
+    import os
+    os.environ["LOGLEVEL"] = "DEBUG"
     from ftlib import BasicFTLib
     from ftlib.ftlib_status import FTAllReduceStatus
 
@@ -31,6 +33,9 @@ class CollectiveCommunicator(object):
                     "custom_bind_addr": socket.gethostbyname(socket.gethostname()),
                 },
             )
+            while not self._ftlib.consensus_joined():
+                logger.warning("Retry building consensus...")
+                self._ftlib.manual_join(known_addr_list=list(self._get_peer_set(service_name)), wait_time=20)
         else:
             logger.warning(
                 "FTLib is not installed. The CollectiveCommunicator "
@@ -96,6 +101,7 @@ class CollectiveCommunicator(object):
             return None
         my_ip = socket.gethostbyname(socket.gethostname())
         temp_set = socket.getaddrinfo(svc_name, 0, proto=socket.IPPROTO_TCP)
+        logger.info("svc_name: %s" % svc_name)
         peer_set = {peer[-1][0] for peer in temp_set if peer[-1][0] != my_ip}
         # Note: Use the following code to reproduce the issue
         # from ftlib import BasicFTLib; import socket; svc_name = "test-trainftlib-consensus"; my_ip = socket.gethostbyname(socket.gethostname()); temp_set = socket.getaddrinfo(svc_name, 0, proto=socket.IPPROTO_TCP); peer_set = {peer[-1][0] for peer in temp_set if peer[-1][0] != my_ip}; BasicFTLib(consensus="gossip", commlib="pytorch", consensus_init_kwargs={"known_addr_list": list(peer_set), "custom_bind_addr": socket.gethostbyname(socket.gethostname())})

@@ -18,7 +18,7 @@ def main():
         raise ValueError("master_addr is missing for worker")
     import time
     logger.info("Wait for 50 seconds for FTLib service to start up...")
-    time.sleep(50)
+    time.sleep(100)
     master_channel = build_channel(args.master_addr)
 
     ps_channels = []
